@@ -191,6 +191,27 @@ class PfpDbg(cmd.Cmd, object):
         """The eof command
         """
         return True
+    
+    def do_where(self, args):
+        """Prints the current stack trace in the template
+        """
+        """Prints the current stack trace in the template."""
+
+        stack = getattr(self._interp, "_call_stack", [])
+
+        if not stack:
+            print("No stack frames available.")
+            return
+
+        print("Call stack (most recent call last):")
+        for i, frame in enumerate(stack):
+            print(f"  #{i} {frame}")
+
+        curr_coord = getattr(self._interp, "_curr_coord", None)
+        if curr_coord:
+            print(f"-> Currently at {curr_coord}")
+        else:
+            print("-> Currently at Unknown Location")
 
     # ---------------------
 

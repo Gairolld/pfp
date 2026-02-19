@@ -627,6 +627,13 @@ class Scope(object):
     # def __setattr__
 
 
+class Frame(object):
+    def __init__(self, name, coord):
+        self.name = name
+        self.coord = coord
+    def __repr__(self):
+        return f"{self.name} @ {self.coord}"
+
 class PfpInterp(object):
     """
     """
@@ -753,7 +760,7 @@ class PfpInterp(object):
         self._scope = None
         self._coord = None
         self._orig_filename = None
-
+        self._call_stack = []
         if parser is None:
             parser = py010parser.c_parser.CParser()
         # this speeds things up a bit
@@ -1089,6 +1096,7 @@ class PfpInterp(object):
         :stream: TODO
         :returns: TODO
         """
+        self._curr_coord = getattr(node, "coord", None)
         if scope is None:
             if self._scope is None:
                 self._scope = scope = self._create_scope()
@@ -1712,7 +1720,9 @@ class PfpInterp(object):
 
     def _handle_struct_decls(self, node, scope, ctxt, stream):
         self._dlog("handling struct decls")
-
+        # adding code for the stack frame
+        frame_name = getattr(node, "name", "<anon struct>")
+        self._call_stack.append(Frame(frame_name,node.coord))
         # new scope
         scope = ctxt._pfp__scope = Scope(self._log, parent=scope)
         self._scope = scope
@@ -1728,6 +1738,7 @@ class PfpInterp(object):
         # so that even if return statements/other exceptions
         # happen, we'll still pop scope
         finally:
+            self._call_stack.pop()
             # need to pop the scope!
             self._scope = scope._parent
 
@@ -2233,7 +2244,13 @@ class PfpInterp(object):
         else:
             func_args = self._handle_node(node.args, scope, ctxt, stream)
         func = self._handle_node(node.name, scope, ctxt, stream)
-        return func.call(func_args, ctxt, scope, stream, self, node.coord)
+        frame_name = getattr(node, "name", "<func call>")
+        self._call_stack.append(Frame(frame_name, node.coord)) 
+        try:
+            res = func.call(func_args, ctxt, scope, stream, self, node.coord)
+            return res
+        finally:
+            self._call_stack.pop()
 
     def _handle_expr_list(self, node, scope, ctxt, stream):
         """Handle ExprList nodes
